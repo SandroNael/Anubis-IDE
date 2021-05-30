@@ -1,7 +1,7 @@
 #############      author => Anubis Graduation Team        ############
+#############      Updated By => Sandro Nael       ############
 #############      this project is part of my graduation project and it intends to make a fully functioned IDE from scratch    ########
 #############      I've borrowed a function (serial_ports()) from a guy in stack overflow whome I can't remember his name, so I gave hime the copyrights of this function, thank you  ########
-
 
 import sys
 import glob
@@ -13,6 +13,9 @@ from PyQt5 import QtGui
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from pathlib import Path
+from io import StringIO
+
+
 
 def serial_ports():
     """ Lists serial port names
@@ -41,16 +44,6 @@ def serial_ports():
             pass
     return result
 
-
-#
-#
-#
-#
-############ Signal Class ############
-#
-#
-#
-#
 class Signal(QObject):
 
     # initializing a Signal which will take (string) as an input
@@ -60,25 +53,10 @@ class Signal(QObject):
     def __init__(self):
         QObject.__init__(self)
 
-#
-#
-############ end of Class ############
-#
-#
-
 # Making text editor as A global variable (to solve the issue of being local to (self) in widget class)
 text = QTextEdit
 text2 = QTextEdit
-
-#
-#
-#
-#
-############ Text Widget Class ############
-#
-#
-#
-#
+fnctParamInput = QLineEdit
 
 # this class is made to connect the QTab with the necessary layouts
 class text_widget(QWidget):
@@ -93,25 +71,6 @@ class text_widget(QWidget):
         hbox.addWidget(text)
         self.setLayout(hbox)
 
-
-
-#
-#
-############ end of Class ############
-#
-#
-
-
-
-#
-#
-#
-#
-############ Widget Class ############
-#
-#
-#
-#
 class Widget(QWidget):
 
     def __init__(self):
@@ -177,6 +136,14 @@ class Widget(QWidget):
         V_splitter.addWidget(H_splitter)
         V_splitter.addWidget(text2)
 
+        fnctParam = QLabel(self)
+        fnctParam.setText("Enter your function parameters separated by a  semicolon ';' ")
+        V_splitter.addWidget(fnctParam)
+
+        global fnctParamInput
+        fnctParamInput = QLineEdit(self)
+        V_splitter.addWidget(fnctParamInput)
+
         Final_Layout = QHBoxLayout(self)
         Final_Layout.addWidget(V_splitter)
 
@@ -206,15 +173,6 @@ class Widget(QWidget):
                 data = f.read()
                 text.setText(data)
 
-#
-#
-############ end of Class ############
-#
-#
-
-# defining a new Slot (takes string)
-# Actually I could connect the (mainwindow) class directly to the (widget class) but I've made this function in between for futuer use
-# All what it do is to take the (input string) and establish a connection with the widget class, send the string to it
 @pyqtSlot(str)
 def reading(s):
     b = Signal()
@@ -261,9 +219,6 @@ class UI(QMainWindow):
         Port = menu.addMenu('Port')
         Run = menu.addMenu('Run')
 
-        # As any PC or laptop have many ports, so I need to list them to the User
-        # so I made (Port_Action) to add the Ports got from (serial_ports()) function
-        # copyrights of serial_ports() function goes back to a guy from stackoverflow(whome I can't remember his name), so thank you (unknown)
         Port_Action = QMenu('port', self)
 
         res = serial_ports()
@@ -282,6 +237,10 @@ class UI(QMainWindow):
         RunAction = QAction("Run", self)
         RunAction.triggered.connect(self.Run)
         Run.addAction(RunAction)
+
+        RunFncAction = QAction("Run Function", self)
+        RunFncAction.triggered.connect(self.ExecuteFunction)
+        Run.addAction(RunFncAction)
 
         # Making and adding File Features
         Save_Action = QAction("Save", self)
@@ -311,7 +270,33 @@ class UI(QMainWindow):
         self.setCentralWidget(widget)
         self.show()
 
+    def ExecuteFunction(self):
+        Functioncode = text.toPlainText()
+        text2.clear()
+
+        if len(Functioncode) > 7 and Functioncode[0:4] == 'def ':
+            test = Functioncode[0:Functioncode.find("(")]
+            function = test + "("
+            parameters = fnctParamInput.text().split(';')
+
+            for i in parameters:
+                function += i + ","
+            function = function[4:len(function) - 1]
+            function += ')'
+            try:
+                output = StringIO()
+                sys.stdout = output
+                exec(Functioncode + "\n" + function)
+                text2.append(output.getvalue())
+                sys.stdout = sys.__stdout__
+                output.close()
+            except:
+                text2.append("An exception happend")
+        else:
+            text2.append( "Write a function")
+
     ###########################        Start OF the Functions          ##################
+
     def Run(self):
         if self.port_flag == 0:
             mytext = text.toPlainText()
